@@ -4,9 +4,7 @@
 
 package wschat
 
-import (
-	arrayHelper "github.com/mysayasan/helpers-go/array"
-)
+import "github.com/mysayasan/arrayhelper"
 
 type Message struct {
 	Topic   string
@@ -62,7 +60,7 @@ func (h *Hub) run() {
 			}
 		case message := <-h.Message:
 			for client := range h.Clients {
-				if arrayHelper.Is.StringInSlice(message.Topic, client.Topics) {
+				if arrayhelper.StringInSlice(message.Topic, client.Topics) {
 					select {
 					case client.Send <- message.Message:
 					default:
