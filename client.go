@@ -71,7 +71,7 @@ func (c *Client) ReadPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.Hub.Message <- &Message{Topic: c.Topics[1], Message: message}
+		c.Hub.Broadcast <- &Broadcast{Topic: c.Topics[1], Message: message}
 	}
 }
 

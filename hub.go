@@ -6,7 +6,7 @@ package wschat
 
 import "github.com/mysayasan/arrayhelper"
 
-type Message struct {
+type Broadcast struct {
 	Topic   string
 	Message []byte
 }
@@ -18,7 +18,7 @@ type Hub struct {
 	Clients map[*Client]bool
 
 	// Inbound messages from the clients.
-	Message chan *Message
+	Broadcast chan *Broadcast
 
 	// Register requests from the clients.
 	Register chan *Client
@@ -30,8 +30,8 @@ type Hub struct {
 // NewHub create new hub
 func NewHub() *Hub {
 	hub := &Hub{
-		// Message:  make(chan []byte),
-		Message:    make(chan *Message),
+		// Broadcast:  make(chan []byte),
+		Broadcast:  make(chan *Broadcast),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
 		Clients:    make(map[*Client]bool),
@@ -58,11 +58,11 @@ func (h *Hub) run() {
 				delete(h.Clients, client)
 				close(client.Send)
 			}
-		case message := <-h.Message:
+		case broadcast := <-h.Broadcast:
 			for client := range h.Clients {
-				if arrayhelper.StringInSlice(message.Topic, client.Topics) {
+				if arrayhelper.StringInSlice(broadcast.Topic, client.Topics) {
 					select {
-					case client.Send <- message.Message:
+					case client.Send <- broadcast.Message:
 					default:
 						close(client.Send)
 						delete(h.Clients, client)
