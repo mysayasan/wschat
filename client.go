@@ -40,6 +40,8 @@ var upgrader = websocket.Upgrader{
 type Client struct {
 	Hub *Hub
 
+	ID string
+
 	Topics []string
 
 	// The websocket connection.

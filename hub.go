@@ -12,14 +12,22 @@ type Broadcast struct {
 	Message []byte
 }
 
+type Private struct {
+	ID      string
+	Message []byte
+}
+
 // Hub maintains the set of active clients and broadcasts messages to the
 // clients.
 type Hub struct {
 	// Registered clients.
-	Clients map[*Client]bool
+	Clients map[string]*Client
 
-	// Inbound messages from the clients.
+	// Inbound messages from the clients to topic.
 	Broadcast chan *Broadcast
+
+	// Inbound messages from the client to client.
+	Private chan *Private
 
 	// Register requests from the clients.
 	Register chan *Client
@@ -33,9 +41,10 @@ func NewHub() *Hub {
 	hub := &Hub{
 		// Broadcast:  make(chan []byte),
 		Broadcast:  make(chan *Broadcast),
+		Private:    make(chan *Private),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
-		Clients:    make(map[*Client]bool),
+		Clients:    make(map[string]*Client),
 	}
 
 	go hub.run()
@@ -53,23 +62,41 @@ func (h *Hub) run() {
 	for {
 		select {
 		case client := <-h.Register:
-			h.Clients[client] = true
+			h.Clients[client.ID] = client
 		case client := <-h.Unregister:
-			if _, ok := h.Clients[client]; ok {
-				delete(h.Clients, client)
+			if _, ok := h.Clients[client.ID]; ok {
+				delete(h.Clients, client.ID)
 				close(client.Send)
 			}
 		case broadcast := <-h.Broadcast:
-			for client := range h.Clients {
+			for _, client := range h.Clients {
 				if arrayhelper.StringInSlice(broadcast.Topic, client.Topics) {
 					select {
 					case client.Send <- broadcast.Message:
 					default:
 						close(client.Send)
-						delete(h.Clients, client)
+						delete(h.Clients, client.ID)
 					}
 				}
 			}
+		case private := <-h.Private:
+			client := h.Clients[private.ID]
+			select {
+			case client.Send <- private.Message:
+			default:
+				close(client.Send)
+				delete(h.Clients, client.ID)
+			}
+			// for client := range h.Clients {
+			// 	if private.ID == client.ID {
+			// 		select {
+			// 		case client.Send <- private.Message:
+			// 		default:
+			// 			close(client.Send)
+			// 			delete(h.Clients, client)
+			// 		}
+			// 	}
+			// }
 		}
 	}
 }
