@@ -92,16 +92,6 @@ func (h *Hub) run() {
 					delete(h.Clients, client.ID)
 				}
 			}
-			// for client := range h.Clients {
-			// 	if private.ID == client.ID {
-			// 		select {
-			// 		case client.Send <- private.Message:
-			// 		default:
-			// 			close(client.Send)
-			// 			delete(h.Clients, client)
-			// 		}
-			// 	}
-			// }
 		}
 	}
 }
