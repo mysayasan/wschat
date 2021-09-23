@@ -61,8 +61,12 @@ func (h *Hub) Run() {
 func (h *Hub) run() {
 	for {
 		select {
-		case client := <-h.Register:
-			h.Clients[client.ID] = client
+		case newclient := <-h.Register:
+			if client, ok := h.Clients[newclient.ID]; ok {
+				delete(h.Clients, client.ID)
+				close(client.Send)
+			}
+			h.Clients[newclient.ID] = newclient
 		case client := <-h.Unregister:
 			if _, ok := h.Clients[client.ID]; ok {
 				delete(h.Clients, client.ID)
@@ -80,12 +84,13 @@ func (h *Hub) run() {
 				}
 			}
 		case private := <-h.Private:
-			client := h.Clients[private.ID]
-			select {
-			case client.Send <- private.Message:
-			default:
-				close(client.Send)
-				delete(h.Clients, client.ID)
+			if client, ok := h.Clients[private.ID]; ok {
+				select {
+				case client.Send <- private.Message:
+				default:
+					close(client.Send)
+					delete(h.Clients, client.ID)
+				}
 			}
 			// for client := range h.Clients {
 			// 	if private.ID == client.ID {
