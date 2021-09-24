@@ -63,14 +63,14 @@ func (h *Hub) run() {
 		select {
 		case newclient := <-h.Register:
 			if client, ok := h.Clients[newclient.ID]; ok {
-				delete(h.Clients, client.ID)
 				close(client.Send)
+				delete(h.Clients, client.ID)
 			}
 			h.Clients[newclient.ID] = newclient
 		case client := <-h.Unregister:
 			if _, ok := h.Clients[client.ID]; ok {
-				delete(h.Clients, client.ID)
 				close(client.Send)
+				delete(h.Clients, client.ID)
 			}
 		case broadcast := <-h.Broadcast:
 			for _, client := range h.Clients {
