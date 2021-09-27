@@ -5,7 +5,9 @@
 
 package wschat
 
-import "github.com/mysayasan/arrayhelper"
+import (
+	"fmt"
+)
 
 type Broadcast struct {
 	Topic   string
@@ -24,7 +26,7 @@ type Hub struct {
 	Clients map[string]*Client
 
 	// Inbound messages from the clients to topic.
-	Broadcast chan *Broadcast
+	Broadcast chan []byte
 
 	// Inbound messages from the client to client.
 	Private chan *Private
@@ -40,11 +42,11 @@ type Hub struct {
 func NewHub() *Hub {
 	hub := &Hub{
 		// Broadcast:  make(chan []byte),
-		Broadcast:  make(chan *Broadcast),
+		Clients:    make(map[string]*Client),
+		Broadcast:  make(chan []byte),
 		Private:    make(chan *Private),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
-		Clients:    make(map[string]*Client),
 	}
 
 	go hub.run()
@@ -62,34 +64,45 @@ func (h *Hub) run() {
 	for {
 		select {
 		case newclient := <-h.Register:
-			if client, ok := h.Clients[newclient.ID]; ok {
-				close(client.Send)
-				delete(h.Clients, client.ID)
+			fmt.Printf("%s\n", newclient.id)
+			if client, ok := h.Clients[newclient.id]; ok {
+				close(client.send)
+				delete(h.Clients, client.id)
 			}
-			h.Clients[newclient.ID] = newclient
+			h.Clients[newclient.id] = newclient
 		case client := <-h.Unregister:
-			if _, ok := h.Clients[client.ID]; ok {
-				close(client.Send)
-				delete(h.Clients, client.ID)
+			if _, ok := h.Clients[client.id]; ok {
+				close(client.send)
+				delete(h.Clients, client.id)
 			}
-		case broadcast := <-h.Broadcast:
+			// case broadcast := <-h.Broadcast:
+			// 	for _, client := range h.Clients {
+			// 		if arrayhelper.StringInSlice(broadcast.Topic, client.topics) {
+			// 			select {
+			// 			case client.send <- broadcast.Message:
+			// 			default:
+			// 				close(client.send)
+			// 				delete(h.Clients, client.id)
+			// 			}
+			// 		}
+			// 	}
+		case message := <-h.Broadcast:
 			for _, client := range h.Clients {
-				if arrayhelper.StringInSlice(broadcast.Topic, client.Topics) {
-					select {
-					case client.Send <- broadcast.Message:
-					default:
-						close(client.Send)
-						delete(h.Clients, client.ID)
-					}
+				select {
+				case client.send <- message:
+				default:
+					close(client.send)
+					delete(h.Clients, client.id)
 				}
 			}
+
 		case private := <-h.Private:
 			if client, ok := h.Clients[private.ID]; ok {
 				select {
-				case client.Send <- private.Message:
+				case client.send <- private.Message:
 				default:
-					close(client.Send)
-					delete(h.Clients, client.ID)
+					close(client.send)
+					delete(h.Clients, client.id)
 				}
 			}
 		}
