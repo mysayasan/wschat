@@ -60,17 +60,17 @@ func NewClient(hub *Hub, id string, conn *websocket.Conn, send chan []byte) *Cli
 	}
 }
 
-func (c *Client) Register() {
-	c.hub.Register <- c
+func (c *Client) Run() {
+	// c.hub.Register <- c
 	go c.runReader()
 	c.runWriter()
 
 }
 
-func (c *Client) Unregister() {
+func (c *Client) Quit() {
 	c.quit <- true
 	c.conn.Close()
-	c.hub.Unregister <- c
+	// c.hub.Unregister <- c
 }
 
 func (c *Client) GetID() string {
@@ -89,7 +89,7 @@ func (c *Client) runWriter() {
 			err := c.conn.WriteMessage(websocket.TextMessage, data)
 			if err != nil {
 				fmt.Printf("Writer: %s\n", err)
-				c.Unregister()
+				c.Quit()
 				// c.Logger().Error(err)
 			}
 		case <-c.quit:
@@ -115,7 +115,7 @@ func (c *Client) runReader() {
 				// if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				// 	fmt.Printf("error: %v", err)
 				// }
-				c.Unregister()
+				c.Quit()
 				return
 			}
 

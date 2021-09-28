@@ -75,7 +75,8 @@ func (h *Hub) run() {
 		case newclient := <-h.Register:
 			fmt.Printf("%s\n", newclient.id)
 			if client, ok := h.Clients[newclient.id]; ok {
-				client.quit <- true
+				// client.quit <- true
+				client.Quit()
 				delete(h.Clients, client.id)
 			}
 			h.Clients[newclient.id] = newclient
@@ -85,7 +86,8 @@ func (h *Hub) run() {
 			delete(h.Clients, client.id)
 		case id := <-h.kill:
 			if client, ok := h.Clients[id]; ok {
-				client.quit <- true
+				// client.quit <- true
+				client.Quit()
 				delete(h.Clients, client.id)
 			}
 
