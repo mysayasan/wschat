@@ -69,7 +69,7 @@ func (c *Client) Register() {
 }
 
 func (c *Client) Unregister() {
-	// c.quit <- true
+	c.quit <- true
 	c.conn.Close()
 	c.hub.Unregister <- c
 }
@@ -113,23 +113,19 @@ func (c *Client) runWriter() {
 }
 
 func (c *Client) runReader() {
-	defer func() {
-		c.Unregister()
-	}()
 	for {
 		select {
 		case <-c.quit:
-			fmt.Printf("writer stop\n")
+			fmt.Printf("reader stop\n")
 			return
-
 		default:
 			// Read
 			_, msg, err := c.conn.ReadMessage()
 			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					fmt.Printf("reader: %v", err)
-				}
-				break
+				fmt.Printf("Reader: %s\n", err)
+				c.Unregister()
+				return
+				// c.Logger().Error(err)
 			}
 
 			c.send <- msg
