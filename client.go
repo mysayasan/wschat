@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"golang.org/x/text/cases"
 )
 
 const (
@@ -122,19 +121,19 @@ func (c *Client) runReader() {
 		case <-c.quit:
 			fmt.Printf("writer stop\n")
 			return
-		
+
 		default:
-		// Read
-		_, msg, err := c.conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				fmt.Printf("reader: %v", err)
+			// Read
+			_, msg, err := c.conn.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					fmt.Printf("reader: %v", err)
+				}
+				break
 			}
-			break
+
+			c.send <- msg
+			fmt.Printf("%s >> %s\n", c.id, msg)
 		}
-
-		c.send <- msg
-		fmt.Printf("%s >> %s\n", c.id, msg)
-
 	}
 }
