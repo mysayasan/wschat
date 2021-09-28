@@ -122,7 +122,10 @@ func (c *Client) runReader() {
 			// Read
 			_, msg, err := c.conn.ReadMessage()
 			if err != nil {
-				fmt.Printf("Reader: %s\n", err)
+				// fmt.Printf("Reader: %s\n", err)
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					fmt.Printf("error: %v", err)
+				}
 				c.Unregister()
 				return
 				// c.Logger().Error(err)
