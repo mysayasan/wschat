@@ -36,6 +36,9 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	Unregister chan *Client
+
+	// Kill client
+	kill chan string
 }
 
 // NewHub create new hub
@@ -47,11 +50,17 @@ func NewHub() *Hub {
 		Private:    make(chan *Private),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
+		kill:       make(chan string),
 	}
 
 	go hub.run()
 
 	return hub
+}
+
+// Run run hub
+func (h *Hub) Kill(id string) {
+	h.kill <- id
 }
 
 // Run run hub
@@ -66,15 +75,20 @@ func (h *Hub) run() {
 		case newclient := <-h.Register:
 			fmt.Printf("%s\n", newclient.id)
 			if client, ok := h.Clients[newclient.id]; ok {
-				close(client.send)
+				client.quit <- true
 				delete(h.Clients, client.id)
 			}
 			h.Clients[newclient.id] = newclient
+			fmt.Printf("Total connected: %d\n", len(h.Clients))
 		case client := <-h.Unregister:
-			if _, ok := h.Clients[client.id]; ok {
-				close(client.send)
+			fmt.Printf("Unregister: %s\n", client.id)
+			delete(h.Clients, client.id)
+		case id := <-h.kill:
+			if client, ok := h.Clients[id]; ok {
+				client.quit <- true
 				delete(h.Clients, client.id)
 			}
+
 			// case broadcast := <-h.Broadcast:
 			// 	for _, client := range h.Clients {
 			// 		if arrayhelper.StringInSlice(broadcast.Topic, client.topics) {
@@ -91,17 +105,19 @@ func (h *Hub) run() {
 				select {
 				case client.send <- message:
 				default:
-					close(client.send)
+					client.quit <- true
 					delete(h.Clients, client.id)
 				}
 			}
 
 		case private := <-h.Private:
+			fmt.Printf("Searching...")
 			if client, ok := h.Clients[private.ID]; ok {
+				fmt.Printf("Found : %s\n", private.Message)
 				select {
 				case client.send <- private.Message:
 				default:
-					close(client.send)
+					client.quit <- true
 					delete(h.Clients, client.id)
 				}
 			}

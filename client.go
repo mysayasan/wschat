@@ -6,23 +6,25 @@ package wschat
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/text/cases"
 )
 
-// const (
-// 	// Time allowed to write a message to the peer.
-// 	writeWait = 10 * time.Second
+const (
+	// Time allowed to write a message to the peer.
+	writeWait = 10 * time.Second
 
-// 	// Time allowed to read the next pong message from the peer.
-// 	pongWait = 60 * time.Second
+	// Time allowed to read the next pong message from the peer.
+	pongWait = 10 * time.Second
 
-// 	// Send pings to peer with this period. Must be less than pongWait.
-// 	pingPeriod = (pongWait * 9) / 10
+	// Send pings to peer with this period. Must be less than pongWait.
+	pingPeriod = (pongWait * 9) / 10
 
-// 	// Maximum message size allowed from peer.
-// 	maxMessageSize = 512
-// )
+	// Maximum message size allowed from peer.
+	maxMessageSize = 512
+)
 
 // var (
 // 	newline = []byte{'\n'}
@@ -45,21 +47,32 @@ type Client struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+
+	quit chan bool
 }
 
 // NewBrokerUcase will create new an brokerUcase object representation of broker.Usecase interface
-func NewClient(hub *Hub, id string, topics []string, conn *websocket.Conn, send chan []byte) *Client {
+func NewClient(hub *Hub, id string, conn *websocket.Conn, send chan []byte) *Client {
 	return &Client{
 		hub:  hub,
 		id:   id,
 		conn: conn,
 		send: send,
+		quit: make(chan bool),
 	}
 }
 
 func (c *Client) Register() {
 	c.hub.Register <- c
-	c.run()
+	go c.runReader()
+	c.runWriter()
+
+}
+
+func (c *Client) Unregister() {
+	// c.quit <- true
+	c.conn.Close()
+	c.hub.Unregister <- c
 }
 
 func (c *Client) GetID() string {
@@ -70,23 +83,58 @@ func (c *Client) Send(data []byte) {
 	c.send <- data
 }
 
-func (c *Client) run() {
+func (c *Client) runWriter() {
+	ticker := time.NewTicker(pingPeriod)
+	defer func() {
+		ticker.Stop()
+	}()
 	for {
 		select {
 		case data := <-c.send:
+			fmt.Printf("Received: %s\n", data)
 			err := c.conn.WriteMessage(websocket.TextMessage, data)
 			if err != nil {
-				fmt.Printf("%s", err)
+				fmt.Printf("Writer: %s\n", err)
+				c.Unregister()
 				// c.Logger().Error(err)
+			}
+		case <-c.quit:
+			fmt.Printf("writer stop\n")
+			return
+		case <-ticker.C:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			fmt.Printf("tik tok")
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				c.Unregister()
 			}
 		default:
-			// Read
-			_, msg, err := c.conn.ReadMessage()
-			if err != nil {
-				fmt.Printf("%s", err)
-				// c.Logger().Error(err)
-			}
-			fmt.Printf("%s >> %s\n", c.id, msg)
+			continue
 		}
+	}
+}
+
+func (c *Client) runReader() {
+	defer func() {
+		c.Unregister()
+	}()
+	for {
+		select {
+		case <-c.quit:
+			fmt.Printf("writer stop\n")
+			return
+		
+		default:
+		// Read
+		_, msg, err := c.conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				fmt.Printf("reader: %v", err)
+			}
+			break
+		}
+
+		c.send <- msg
+		fmt.Printf("%s >> %s\n", c.id, msg)
+
 	}
 }
