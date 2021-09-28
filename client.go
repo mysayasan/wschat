@@ -6,24 +6,23 @@ package wschat
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-const (
-	// Time allowed to write a message to the peer.
-	writeWait = 10 * time.Second
+// const (
+// 	// Time allowed to write a message to the peer.
+// 	writeWait = 10 * time.Second
 
-	// Time allowed to read the next pong message from the peer.
-	pongWait = 10 * time.Second
+// 	// Time allowed to read the next pong message from the peer.
+// 	pongWait = 10 * time.Second
 
-	// Send pings to peer with this period. Must be less than pongWait.
-	pingPeriod = (pongWait * 9) / 10
+// 	// Send pings to peer with this period. Must be less than pongWait.
+// 	pingPeriod = (pongWait * 9) / 10
 
-	// Maximum message size allowed from peer.
-	maxMessageSize = 512
-)
+// 	// Maximum message size allowed from peer.
+// 	maxMessageSize = 512
+// )
 
 // var (
 // 	newline = []byte{'\n'}
@@ -83,10 +82,6 @@ func (c *Client) Send(data []byte) {
 }
 
 func (c *Client) runWriter() {
-	ticker := time.NewTicker(pingPeriod)
-	defer func() {
-		ticker.Stop()
-	}()
 	for {
 		select {
 		case data := <-c.send:
@@ -100,12 +95,6 @@ func (c *Client) runWriter() {
 		case <-c.quit:
 			fmt.Printf("writer stop\n")
 			return
-		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			fmt.Printf("tik tok")
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				c.Unregister()
-			}
 		default:
 			continue
 		}
@@ -122,13 +111,12 @@ func (c *Client) runReader() {
 			// Read
 			_, msg, err := c.conn.ReadMessage()
 			if err != nil {
-				// fmt.Printf("Reader: %s\n", err)
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					fmt.Printf("error: %v", err)
-				}
+				fmt.Printf("Reader: %s\n", err)
+				// if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				// 	fmt.Printf("error: %v", err)
+				// }
 				c.Unregister()
 				return
-				// c.Logger().Error(err)
 			}
 
 			c.send <- msg
