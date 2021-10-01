@@ -70,7 +70,7 @@ func (c *Client) Run() {
 func (c *Client) Quit() {
 	c.quit <- true
 	c.conn.Close()
-	// c.hub.Unregister <- c
+	c.hub.Unregister <- c
 }
 
 func (c *Client) GetID() string {
